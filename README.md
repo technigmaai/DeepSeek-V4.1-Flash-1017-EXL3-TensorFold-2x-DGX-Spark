@@ -410,3 +410,7 @@ stops the engine cleanly instead of leaving the lane broken.
 This recipe stands on the work of DeepSeek (the model), LibertAIDAI (the compressed weights), turboderp (ExLlamaV3), ashhart and the TensorFold contributors, **bertholomus (the fast V4.1 engine this recipe runs)**, willjriley and Capicua25x (engine fixes), MiaAI-Lab (the vLLM kit and the template) and tonyd2wild (the benchmark method). [Full credits](CREDITS.md)
 
 The scripts, tests and documents here are Apache-2.0 ([LICENSE](LICENSE)). The model, the template and the engine keep their own licences.
+
+## Fork patches
+
+See [local deployment patches](docs/LOCAL-PATCHES.md) for the image-limit, concurrent-image scheduler and DRM fixes maintained on top of upstream.

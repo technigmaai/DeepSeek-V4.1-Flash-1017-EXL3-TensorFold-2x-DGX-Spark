@@ -43,9 +43,9 @@ run_args() {  # $1 = rank. Every TF_DS_* setting below is explained in docs/WHAT
 -e NCCL_IB_HCA=$NCCL_IB_HCA -e NCCL_IB_GID_INDEX=$GID_INDEX -e NCCL_SOCKET_IFNAME=$NCCL_SOCKET_IFNAME
 -e TORCH_EXTENSIONS_DIR=/cache/torch_extensions -e HF_HUB_OFFLINE=1
 --entrypoint tensorfold $IMAGE serve /model --tp 2 --rank $r --master $HEAD_IP
---host $BIND_HOST --port $PORT --name $SERVED_NAME $( [ -n "${SERVED_ALIAS:-}" ] && echo "--alias $SERVED_ALIAS" )
+--host $BIND_HOST --port $PORT --name $SERVED_NAME $( [ -n "${SERVED_ALIAS:-}" ] && echo "--alias $SERVED_ALIAS" ) $( [ -n "${SERVED_ALIAS_2:-}" ] && echo "--alias $SERVED_ALIAS_2" )
 $( [ -n "$key" ] && echo "--api-key-file /run/keys" )
---context $CONTEXT $( [ "${VISION:-1}" = 1 ] && echo --vision ) --parallel $PARALLEL --mtp-drafts $MTP_DRAFTS
+--context $CONTEXT $( [ "${VISION:-1}" = 1 ] && echo "--vision --vision-max-images ${VISION_MAX_IMAGES:-8}" ) --parallel $PARALLEL --mtp-drafts $MTP_DRAFTS
 --temperature $TEMPERATURE --top-p $TOP_P $( [ "${THINKING:-1}" = 1 ] && echo --thinking || echo --no-thinking ) --reasoning-effort ${REASONING_EFFORT:-high} --no-update-check
 EOF
 }

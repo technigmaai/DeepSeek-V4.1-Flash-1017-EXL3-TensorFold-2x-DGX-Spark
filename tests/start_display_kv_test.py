@@ -76,7 +76,7 @@ if name == "docker":
         print(setting("HEAD_NAMES"))
     elif args[:2] == ["image", "inspect"]:
         image = args[2]
-        if image == setting("IMAGE", "base:latest"):
+        if image == setting("DISPLAY_BASE_IMAGE", setting("IMAGE", "base:latest")):
             if setting("BASE_IMAGE_MISSING") == "1":
                 sys.exit(1)
             print("base-id")
@@ -238,6 +238,16 @@ class StartDisplayKvTest(unittest.TestCase):
         self.assertNotIn("drm:", commands)
         self.assertNotIn("docker run", commands)
         self.assertNotIn("bundle-start", commands)
+
+    def test_explicit_pristine_base_is_used_for_rebuilds(self):
+        with (self.root / ".env").open("a") as config:
+            config.write("DISPLAY_BASE_IMAGE=pristine:base\n")
+        result = self.invoke("--build-only")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        commands = "\n".join(self.commands())
+        self.assertIn("docker image inspect pristine:base", commands)
+        self.assertIn("BASE_IMAGE=pristine:base", commands)
+        self.assertNotIn("docker image inspect base:latest", commands)
 
     def test_explicit_build_copies_then_launches(self):
         self.state.unlink()

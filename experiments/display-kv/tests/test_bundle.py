@@ -4,6 +4,8 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+import shutil
+from unittest.mock import patch
 
 
 HERE = Path(__file__).resolve().parents[1]
@@ -13,6 +15,28 @@ spec.loader.exec_module(prepare)
 
 
 class BundleTests(unittest.TestCase):
+    def test_explicit_prefill_chunk_and_invalid_overrides(self):
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = Path(directory) / "recipe"
+            fixture.mkdir()
+            shutil.copytree(prepare.ROOT / "scripts", fixture / "scripts")
+            for name in ("start.sh", "stop.sh", "status.sh", "verify.sh", "AGENTS.md"):
+                shutil.copy2(prepare.ROOT / name, fixture / name)
+            with patch.object(prepare, "ROOT", fixture):
+                for setting, expected in (("", "512"), ("DISPLAY_PREFILL_CHUNK=4096 # explicit\n", "4096")):
+                    with self.subTest(setting=setting):
+                        (fixture / ".env").write_text("IMAGE=base:latest\nPREFILL_CHUNK=2048\n" + setting)
+                        destination = Path(directory) / ("bundle" + expected)
+                        prepare.prepare(destination)
+                        self.assertIn("PREFILL_CHUNK=" + expected + "\n", (destination / ".env").read_text())
+                for setting in ("0", "-1", "abc", "1.5", "1\nDISPLAY_PREFILL_CHUNK=2"):
+                    with self.subTest(invalid=setting):
+                        (fixture / ".env").write_text("IMAGE=base:latest\nDISPLAY_PREFILL_CHUNK=" + setting + "\n")
+                        destination = Path(directory) / "invalid"
+                        with self.assertRaises(ValueError):
+                            prepare.prepare(destination)
+                        self.assertFalse(destination.exists())
+
     def test_bundle_is_separate_and_refuses_overwrite(self):
         active = {name: (prepare.ROOT / name).read_bytes() for name in (".env", "start.sh")}
         with tempfile.TemporaryDirectory() as directory:

@@ -7,3 +7,6 @@ __pycache__/
 .display-kv-image.tmp
 /data/benchmarks.sqlite*
 runs/*
+
+# Private operator automation, credentials, backups and runtime state.
+/deployment/

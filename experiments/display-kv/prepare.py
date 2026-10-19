@@ -46,8 +46,15 @@ fi
     config = (ROOT / ".env").read_text()
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._/:@-]*", image):
         raise ValueError("invalid experimental image reference")
+    # Preserve the 512 default; allow an explicit operator prefill experiment.
+    overrides = re.findall(r"(?m)^DISPLAY_PREFILL_CHUNK=(.*)$", config)
+    if len(overrides) > 1:
+        raise ValueError("expected at most one DISPLAY_PREFILL_CHUNK")
+    chunk = overrides[0].split("#", 1)[0].strip() if overrides else "512"
+    if not chunk.isdecimal() or int(chunk) <= 0:
+        raise ValueError("DISPLAY_PREFILL_CHUNK must be a positive integer")
     # SPILL_GIB is inherited from .env: the display-safe tier supports it now.
-    for key, value in (("IMAGE", image), ("PREFILL_CHUNK", "512")):
+    for key, value in (("IMAGE", image), ("PREFILL_CHUNK", chunk)):
         config, count = re.subn(rf"(?m)^{key}=.*$", f"{key}={value}", config)
         if count == 0 and key == "PREFILL_CHUNK":
             config = config.rstrip() + f"\n{key}={value}\n"

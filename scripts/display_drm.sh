@@ -150,6 +150,13 @@ module_refcount_state() {
     return 0
 }
 
+display_parameters_ready() {
+    local modeset fbdev
+    modeset=$(read_value "$MODULES_ROOT/nvidia_drm/parameters/modeset" 2>/dev/null) || return 1
+    fbdev=$(read_value "$MODULES_ROOT/nvidia_drm/parameters/fbdev" 2>/dev/null) || return 1
+    [[ $modeset == Y || $modeset == 1 ]] && [[ $fbdev == N || $fbdev == 0 ]]
+}
+
 safe_to_reload() {
     local card state
     compute_state
@@ -163,10 +170,14 @@ safe_to_reload() {
         printf 'refusing: no NVIDIA DRM card was found\n' >&2
         return 1
     }
-    module_refcount_state
-    if [[ $? == 1 ]]; then
-        printf 'refusing: %s\n' "$REFCOUNT_REASON" >&2
-        return 1
+    # A reference prohibits unloading the module. Reusing already-correct
+    # parameters never unloads it; all active-user checks still run below.
+    if [[ $REUSE_CONFIGURED == 0 ]]; then
+        module_refcount_state
+        if [[ $? == 1 ]]; then
+            printf 'refusing: %s\n' "$REFCOUNT_REASON" >&2
+            return 1
+        fi
     fi
     mapped_device_state
     case $? in
@@ -261,6 +272,7 @@ show_check() {
     fi
 }
 
+REUSE_CONFIGURED=0
 case $ACTION in
     --help|-h|help) usage; exit 0 ;;
     check) show_check ;;
@@ -269,8 +281,19 @@ case $ACTION in
             printf 'on/off require root; run sudo bash scripts/display_drm.sh %s\n' "$ACTION" >&2
             exit 1
         fi
+        if [[ $ACTION == on ]] && display_parameters_ready; then
+            REUSE_CONFIGURED=1
+        fi
         safe_to_reload || exit 1
-        reload_module "$ACTION"
+        if [[ $REUSE_CONFIGURED == 1 ]]; then
+            display_parameters_ready || {
+                printf 'refusing: DRM parameters changed during idle checks\n' >&2
+                exit 1
+            }
+            printf 'NVIDIA DRM already has modeset=1 fbdev=0; idle checks passed; no module reload needed\n'
+        else
+            reload_module "$ACTION"
+        fi
         ;;
     *) usage >&2; exit 2 ;;
 esac

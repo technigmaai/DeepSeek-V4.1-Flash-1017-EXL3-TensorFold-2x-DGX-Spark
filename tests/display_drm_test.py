@@ -127,6 +127,68 @@ class DisplayDrmTest(unittest.TestCase):
         self.assertIn("module refcount is 2", result.stderr)
         self.assertEqual(self.commands(), "")
 
+    def prepared_parameters(self, refcount="1"):
+        module = self.sysfs / "module/nvidia_drm"
+        parameters = module / "parameters"
+        parameters.mkdir(parents=True)
+        (parameters / "modeset").write_text("Y\n")
+        (parameters / "fbdev").write_text("N\n")
+        (module / "refcnt").write_text(refcount + "\n")
+
+    def test_prepared_parameters_are_reused_without_module_commands(self):
+        self.prepared_parameters()
+        result = self.invoke("on")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("no module reload needed", result.stdout)
+        self.assertEqual(self.commands(), "")
+
+    def test_prepared_parameters_do_not_allow_reload_for_off(self):
+        self.prepared_parameters()
+        result = self.invoke("off")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("module refcount is 1", result.stderr)
+        self.assertEqual(self.commands(), "")
+
+    def test_wrong_parameters_still_require_zero_module_references(self):
+        self.prepared_parameters()
+        (self.sysfs / "module/nvidia_drm/parameters/fbdev").write_text("Y\n")
+        result = self.invoke("on")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("module refcount is 1", result.stderr)
+        self.assertEqual(self.commands(), "")
+
+    def test_reuse_refuses_compute(self):
+        self.prepared_parameters()
+        result = self.invoke("on", COMPUTE_PIDS="123\n")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("compute process", result.stderr)
+        self.assertEqual(self.commands(), "")
+
+    def test_reuse_refuses_live_mapping(self):
+        self.prepared_parameters()
+        self.map_process(322, "7f00 /dev/dri/card7")
+        result = self.invoke("on")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("maps an NVIDIA DRM device", result.stderr)
+        self.assertEqual(self.commands(), "")
+
+    def test_reuse_refuses_open_render_fd(self):
+        self.prepared_parameters()
+        self.make_render_node()
+        self.open_fd(323, 9, "/dev/dri/renderD128")
+        result = self.invoke("on")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("has an NVIDIA DRM device open", result.stderr)
+        self.assertEqual(self.commands(), "")
+
+    def test_reuse_refuses_active_scanout(self):
+        self.prepared_parameters()
+        (self.sysfs / "class/drm/card7-DP-1/enabled").write_text("enabled\n")
+        result = self.invoke("on")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("active NVIDIA scanout", result.stderr)
+        self.assertEqual(self.commands(), "")
+
     def test_unrelated_framebuffer_fd_is_allowed(self):
         device = self.sysfs / "class/drm/card0/device"
         device.mkdir(parents=True)

@@ -5,3 +5,4 @@ COPY apply.py /opt/display-kv-stage/apply.py
 COPY overlay /opt/display-kv-stage/overlay
 COPY probe.py /opt/display-kv-stage/probe.py
 RUN python3 /opt/display-kv-stage/apply.py /opt/tensorfold
+RUN python3 /opt/display-kv-stage/overlay/local_engine_fixes.py /opt/tensorfold
